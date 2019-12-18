@@ -1,4 +1,4 @@
-function [d, x, y] = ellipsoid_distance(A1,center1,A2,center2,c1,c2,epsilon,max_iter)
+function [d, x, y] = ellipsoid_neg_distance(A1,center1,A2,center2,c1,c2,epsilon,max_iter)
 %ELLIPSOID_DISTANCE Compute the distance between two ellipsoids
 %   Detailed explanation goes here
 %
@@ -81,23 +81,8 @@ b_stop = false;
 
 while(~b_stop)
     
-    % solve eq (2.2) of paper to get t1 and t2
-    t1 = getStepSize(c1,c2,A1,center1,true);
-    t2 = getStepSize(c1,c2,A2,center2,false);
-    
-    if t2 <= t1
-        % DONE! distance is zero
-%         d = 0;
-%         x = nan(size(A1,1),1);
-%         y = x;
-        % try to compute a "negative distance"
-        [d, x, y] = ellipsoid_neg_distance(A1,center1,A2,center2,c1,c2,epsilon,max_iter);
-        return;
-    end
-    
-    % update x and y
-    x = c1 + t1*(c2-c1);
-    y = c1 + t2*(c2-c1);
+    % update x,y as max distance on the segment
+    [x,y] = getMaxDistancePoints(c1,c2,A1,center1,A2,center2);
     
     % compute angle theta1 and theta2
     % NB in paper is:
@@ -113,7 +98,6 @@ while(~b_stop)
     
     if (theta1<epsilon) && (theta2<epsilon)
         % DONE
-        d = norm(x-y);
         break;
     end
     
@@ -174,6 +158,76 @@ function t = getStepSize(c1,c2,A,center,use_max)
         end
     end
 
+end
+
+function [x,y] = getMaxDistancePoints(c1,c2,A1,center1,A2,center2)
+    coeff = zeros(1,3);
+    
+    coeff(1) = (c2-c1)'*A1*(c2-c1);
+    coeff(2) = 2*(c2-c1)'*A1*(c1-center1);
+    coeff(3) = (c1-center1)'*A1*(c1-center1) - 1;
+    r1 = roots(coeff);
+    
+    coeff(1) = (c2-c1)'*A2*(c2-c1);
+    coeff(2) = 2*(c2-c1)'*A2*(c1-center2);
+    coeff(3) = (c1-center2)'*A2*(c1-center2) - 1;
+    r2 = roots(coeff);
+    
+    Points = [ c1 + r1(1)*(c2-c1), c1 + r1(2)*(c2-c1), ...
+               c1 + r2(1)*(c2-c1), c1 + r2(2)*(c2-c1)];
+           
+    Feasible_Points = [];
+    for i=1:size(Points,2)  
+        %check if feasible
+        if (isInsideEllipsoid(Points(:,i),A1,center1) ...
+         && isInsideEllipsoid(Points(:,i),A2,center2))
+            Feasible_Points = [Feasible_Points Points(:,i)];
+        end
+    end
+    
+    best
+    
+    X = zeros(size(A1,1),4);
+    Y = X;
+    
+    X(:,1) = c1 + r1(1)*(c2-c1);
+    X(:,2) = c1 + r1(2)*(c2-c1);
+    
+    Y(:,1) = c1 + r2(1)*(c2-c1);
+    Y(:,3) = c1 + r2(2)*(c2-c1);
+    
+    % use only feasible solutions
+    if ~(isInsideEllipsoid(X(:,1),A1,center1) ...
+         && isInsideEllipsoid(X(:,1),A2,center2))
+        X(:,1) = nan;
+    end
+    if ~(isInsideEllipsoid(X(:,2),A1,center1) ...
+         && isInsideEllipsoid(X(:,2),A2,center2))
+        X(:,2) = nan;
+    end
+    if ~(isInsideEllipsoid(Y(:,1),A1,center1) ...
+         && isInsideEllipsoid(Y(:,1),A2,center2))
+        Y(:,1) = nan;
+    end
+    if ~(isInsideEllipsoid(Y(:,3),A1,center1) ...
+         && isInsideEllipsoid(Y(:,3),A2,center2))
+        Y(:,3) = nan;
+    end
+    
+    % Duplicate for comparison
+    X(:,3) = X(:,1);
+    X(:,4) = X(:,2);
+    
+    Y(:,2) = Y(:,1);
+    Y(:,4) = Y(:,3);
+    
+    D = vecnorm(X-Y);
+    
+    [~,index] = max(D);
+    
+    x = X(:,index);
+    y = Y(:,index);    
+    
 end
 
 function isSymPD = fastcheck_SymPD(A)
