@@ -1,4 +1,4 @@
-function [d, x, y] = ellipsoid_distance(A1,center1,A2,center2,c1,c2,epsilon,max_iter)
+function [d, x, y, iters] = ellipsoid_distance(A1,center1,A2,center2,c1,c2,epsilon,max_iter, do_checks)
 %ELLIPSOID_DISTANCE Compute the distance between two ellipsoids
 %   Detailed explanation goes here
 %
@@ -12,13 +12,19 @@ function [d, x, y] = ellipsoid_distance(A1,center1,A2,center2,c1,c2,epsilon,max_
 
 %% Assertions
 
+if nargin < 9
+    do_checks = true;
+end
+
+if do_checks
+
 assert( ...
     all(size(A1) == size(A2)) ...
     && ...
     size(A1,1) == size(A1,2) ...
     && ...
     size(A1,1) == length(center1) ...
-    , 'ellipsoid_distance:size_mismatch')
+    , 'ellipsoid_distance:size_mismatch', 'size_mismatch')
 
 %% Check h.
 % check if matrix A1 A2 are symmetric positive definite
@@ -49,7 +55,7 @@ end
 
 %% Init
 if nargin < 8 || isempty(max_iter)
-    max_iter = 1000;
+    max_iter = 3000;
 end
 if nargin < 7 || isempty(epsilon)
     epsilon = deg2rad(0.1);
@@ -59,7 +65,7 @@ end
 if nargin < 6 || isempty(c2)
     c2 = center2; %-A2\b2;
 end
-if nargin < 6 || isempty(c1)
+if nargin < 5 || isempty(c1)
     c1 = center1; %-A1\b1;
 end
 
@@ -71,11 +77,10 @@ if ~isInsideEllipsoid(c2,A2,center2)
     error('ellipsoid_distance:c_not_in_E','Initial value of c2 is outside E')
 end
 
-%% Check hip
-% c1€E1 and c2€E2
+end
 
-% iters
-iter = 1;
+%% iters
+iters = 1;
 
 b_stop = false;
 
@@ -123,14 +128,16 @@ while(~b_stop)
     c2 = y - gamma2*(vec_2);
     
     % update number of iter
-    iter = iter + 1;
+    iters = iters + 1;
     
     % update b_stop
-    b_stop = iter > max_iter;
+    b_stop = iters > max_iter;
     
 end
 
-iter
+if b_stop
+	d = norm(x-y);
+end
 
 end
 
@@ -175,7 +182,8 @@ end
 
 function isSymPD = fastcheck_SymPD(A)
 
-    try chol(A)
+    try 
+        chol(A);
         isSymPD = true;
     catch ME
         isSymPD = false;
