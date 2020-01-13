@@ -167,8 +167,15 @@ function t = getStepSize(c1,c2,A,center,use_max)
 %     coeff(1) = 0.5*(c2-c1)'*A*(c2-c1);
 %     coeff(2) = (A*c1 + b)'*(c2-c1);
 %     coeff(3) = (c1'*A + b')*c1 + a;
+
+    D = coeff(2)^2 - 4*coeff(1)*coeff(3);
     
-    r = roots(coeff);
+    r = [
+        (-coeff(2) - sqrt(D))/(2*coeff(1));
+        (-coeff(2) + sqrt(D))/(2*coeff(1))
+    ];
+%     r = roots(coeff);
+    
     r = r(imag(r)==0 & r>=0 & r<=1);
 
     if use_max 
