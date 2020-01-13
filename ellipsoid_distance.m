@@ -1,6 +1,6 @@
 function [d, x, y, iters] = ellipsoid_distance(A1,center1,A2,center2,c1,c2,epsilon,max_iter, do_checks)
 %ELLIPSOID_DISTANCE Compute the distance between two ellipsoids
-%   Detailed explanation goes here
+%   the ellipsoids are in the form x'*(A-center)*x < 1
 %
 %
 % Algorithm from:
@@ -28,15 +28,23 @@ assert( ...
 
 %% Check h.
 % check if matrix A1 A2 are symmetric positive definite
-if ~fastcheck_SymPD(A1)
-    if ~check_SPD(A1) % check semipositive definite to give a warning
+if ~isSymmetric(A1)
+    error('ellipsoid_distance:NOT_Symmetric','Matrix A1 is not Symmetric')
+end
+[isPD,isSPD] = isPositiveDefinite(A1);
+if ~isPD
+    if isSPD % check semipositive definite to give a warning
         warning('ellipsoid_distance:SPD','Matrix A1 is SPD')
     else
         error('ellipsoid_distance:NOT_SPD','Matrix A1 is not SPD')
     end
 end
-if ~fastcheck_SymPD(A2)
-    if ~check_SPD(A2) % check semipositive definite to give a warning
+if ~isSymmetric(A2)
+    error('ellipsoid_distance:NOT_Symmetric','Matrix A2 is not Symmetric')
+end
+[isPD,isSPD] = isPositiveDefinite(A2);
+if ~isPD
+    if ~isSPD % check semipositive definite to give a warning
         warning('ellipsoid_distance:SPD','Matrix A2 is SPD')
     else
         error('ellipsoid_distance:NOT_SPD','Matrix A2 is not SPD')
@@ -77,7 +85,7 @@ if ~isInsideEllipsoid(c2,A2,center2)
     error('ellipsoid_distance:c_not_in_E','Initial value of c2 is outside E')
 end
 
-end
+end %end do checks
 
 %% iters
 iters = 1;
@@ -95,7 +103,7 @@ while(~b_stop)
         d = 0;
         x = nan(size(A1,1),1);
         y = x;
-        break;
+        return;
     end
     
     % update x and y
@@ -117,7 +125,7 @@ while(~b_stop)
     if (theta1<epsilon) && (theta2<epsilon)
         % DONE
         d = norm(x-y);
-        break;
+        return;
     end
     
     % Update c1 c2 for the next iteration
@@ -135,9 +143,8 @@ while(~b_stop)
     
 end
 
-if b_stop
-	d = norm(x-y);
-end
+% max iter reached
+d = norm(x-y);
 
 end
 
@@ -162,44 +169,25 @@ function t = getStepSize(c1,c2,A,center,use_max)
 %     coeff(3) = (c1'*A + b')*c1 + a;
     
     r = roots(coeff);
-    r = r(r>=0 & r<=1);
+    r = r(imag(r)==0 & r>=0 & r<=1);
 
     if use_max 
         if isempty(r)
             t = 1;
         else
-            t = r;
+            t = r(1);
         end
     else
         if isempty(r)
             t = 0;
         else
-            t = r;
+            t = r(1);
         end
     end
 
 end
 
-function isSymPD = fastcheck_SymPD(A)
 
-    try 
-        chol(A);
-        isSymPD = true;
-    catch ME
-        isSymPD = false;
-    end
 
-end
 
-function isSPD = check_SPD(A, tol)
-
-    d = eig(A);
-    
-    if nargin < 2 || isempty(tol)
-        tol = length(d)*eps(max(d));
-    end
-    
-    isSPD = all(d) > -tol;
-
-end
 
